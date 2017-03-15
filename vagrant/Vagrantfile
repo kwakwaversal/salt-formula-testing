@@ -10,7 +10,7 @@ Vagrant.configure("2") do |config|
   end
 
   #
-  config.vm.box = "ubuntu/trusty64"
+  config.vm.box = "ubuntu/xenial64"
   config.vm.hostname = "salt-dev"
 
   ## For masterless, mount your salt file root

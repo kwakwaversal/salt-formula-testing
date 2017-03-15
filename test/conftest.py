@@ -4,6 +4,9 @@ import testinfra
 
 target_boxes = ['centos7-salt', 'ubuntu15-salt']
 
+# Use testinfra to get a handy function to run commands locally
+local_command = testinfra.get_backend('local://').get_module('Command')
+
 
 @pytest.fixture(scope='module', params=target_boxes)
 def image_name(request):
@@ -15,16 +18,16 @@ def image_name(request):
 
 
 @pytest.fixture(scope='module')
-def docker_image(image_name, LocalCommand):
+def docker_image(image_name):
     from os.path import dirname
     test_dir = dirname(__file__)
-    cmd = LocalCommand("docker build -t %s %s/%s", image_name, test_dir, image_name)
+    cmd = local_command("docker build -t %s %s/%s", image_name, test_dir, image_name)
     assert cmd.rc == 0
     return image_name
-    
+
 
 @pytest.fixture(scope='module')
-def Docker(request, docker_image, LocalCommand):
+def Docker(request, docker_image):
     """
     Boot and stop a docker image. The image is primed with salt-minion.
     """
@@ -33,11 +36,10 @@ def Docker(request, docker_image, LocalCommand):
     print 'Project root dir is:', root_dir
 
     # Run a new container. Run in privileged mode, so systemd will start
-    docker_id = LocalCommand.check_output("docker run --privileged -d -v %s/salt/:/srv/salt -v %s/pillar/:/srv/pillar/ %s", root_dir, root_dir, docker_image)
+    docker_id = local_command.check_output("docker run --privileged -d -v %s/salt/:/srv/salt -v %s/pillar/:/srv/pillar/ %s", root_dir, root_dir, docker_image)
 
     def teardown():
-        LocalCommand("docker kill %s", docker_id)
-        LocalCommand("docker rm %s", docker_id)
+        local_command("docker rm -f %s", docker_id)
 
     # At the end of each test, we destroy the container
     request.addfinalizer(teardown)
@@ -57,8 +59,9 @@ def docker_backend_provision_as(self, minion_id):
     return cmd
 
 
-testinfra.backend.docker.DockerBackend.provision_as = docker_backend_provision_as
-
+# testinfra.backend.docker.DockerBackend.provision_as = docker_backend_provision_as
+testinfra.backend.get_backend_class('docker').provision_as = \
+    docker_backend_provision_as
 
 @pytest.fixture
 def Slow():
